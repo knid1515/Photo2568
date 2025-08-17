@@ -161,6 +161,11 @@
                     <p class="text-muted mb-0">ระบบจัดการอัลบั้มภาพจาก Google Drive</p>
                 </div>
                 <div class="col-md-4 text-end">
+                    <div class="mb-2">
+                        <small class="text-muted" id="configStatus">
+                            <i class="bi bi-gear"></i> กำลังโหลดการตั้งค่า...
+                        </small>
+                    </div>
                     <button class="btn btn-primary" onclick="refreshData()">
                         <i class="bi bi-arrow-clockwise"></i> รีเฟรชข้อมูล
                     </button>
@@ -308,10 +313,10 @@
     <script>
         // Configuration - will be loaded from Google Sheets
         let CONFIG = {
-            MAIN_FOLDER_ID: '17Fa8NmysOCSbkxwWCeUtai2VW4GikGN5', // Default fallback
-            API_URL: 'https://script.google.com/macros/s/AKfycbyS3f5CaJtfPvuC-CBotytv3kMdovwdEZ05iKPhTC7OooFQTI5vWYnB-2TV_51NloDtaQ/exec', // Default fallback
-            ALBUMS_PER_PAGE: 8, // 2 rows x 4 columns
-            PHOTOS_PER_PAGE: 20 // 4 columns x 5 rows
+            MAIN_FOLDER_ID: null,
+            API_URL: null,
+            ALBUMS_PER_PAGE: 8, // Default fallback
+            PHOTOS_PER_PAGE: 20 // Default fallback
         };
 
         // Global variables
@@ -321,6 +326,9 @@
         let currentAlbumsPage = 1;
         let currentPhotosPage = 1;
 
+        // Initial API URL for loading configuration (must be set manually first time)
+        const INITIAL_API_URL = 'https://script.google.com/macros/s/AKfycbyS3f5CaJtfPvuC-CBotytv3kMdovwdEZ05iKPhTC7OooFQTI5vWYnB-2TV_51NloDtaQ/exec';
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadConfiguration();
@@ -328,26 +336,47 @@
 
         // Load configuration from Google Sheets
         async function loadConfiguration() {
+            showLoading(true);
+            
             try {
-                const response = await fetch(`${CONFIG.API_URL}?action=getConfig`);
+                // Use INITIAL_API_URL to get configuration from sheet
+                const response = await fetch(`${INITIAL_API_URL}?action=getConfig`);
                 const data = await response.json();
                 
-                if (data.success) {
+                if (data.success && data.data) {
                     // Update CONFIG with values from sheet
-                    CONFIG.MAIN_FOLDER_ID = data.MAIN_FOLDER_ID || CONFIG.MAIN_FOLDER_ID;
-                    CONFIG.API_URL = data.API_URL || CONFIG.API_URL;
-                    CONFIG.ALBUMS_PER_PAGE = parseInt(data.ALBUMS_PER_PAGE) || CONFIG.ALBUMS_PER_PAGE;
-                    CONFIG.PHOTOS_PER_PAGE = parseInt(data.PHOTOS_PER_PAGE) || CONFIG.PHOTOS_PER_PAGE;
+                    CONFIG.MAIN_FOLDER_ID = data.data.MAIN_FOLDER_ID;
+                    CONFIG.API_URL = data.data.API_URL;
+                    CONFIG.ALBUMS_PER_PAGE = parseInt(data.data.ALBUMS_PER_PAGE) || CONFIG.ALBUMS_PER_PAGE;
+                    CONFIG.PHOTOS_PER_PAGE = parseInt(data.data.PHOTOS_PER_PAGE) || CONFIG.PHOTOS_PER_PAGE;
                     
-                    console.log('Configuration loaded from sheet:', CONFIG);
+                    console.log('✅ Configuration loaded from Google Sheet:', CONFIG);
+                    
+                    // Update config status display
+                    document.getElementById('configStatus').innerHTML = 
+                        '<i class="bi bi-check-circle text-success"></i> การตั้งค่าโหลดสำเร็จ';
+                    
+                    // Validate required configurations
+                    if (!CONFIG.MAIN_FOLDER_ID || !CONFIG.API_URL) {
+                        throw new Error('ไม่พบการตั้งค่าที่จำเป็น (MAIN_FOLDER_ID หรือ API_URL) ใน Google Sheet');
+                    }
+                    
                 } else {
-                    console.warn('Could not load config from sheet, using defaults:', data.error);
+                    throw new Error(data.error || 'ไม่สามารถโหลดการตั้งค่าจาก Google Sheet ได้');
                 }
             } catch (error) {
-                console.warn('Error loading config, using defaults:', error.message);
+                console.error('❌ Error loading configuration:', error.message);
+                
+                // Update config status display
+                document.getElementById('configStatus').innerHTML = 
+                    '<i class="bi bi-exclamation-triangle text-danger"></i> โหลดการตั้งค่าไม่สำเร็จ';
+                
+                showError('ไม่สามารถโหลดการตั้งค่าได้: ' + error.message + '\n\nกรุณาตรวจสอบ:\n1. Google Sheet "setting" มีอยู่หรือไม่\n2. API URL ถูกต้องหรือไม่\n3. สิทธิ์การเข้าถึงเหมาะสมหรือไม่');
+                showLoading(false);
+                return;
             }
             
-            // Load main data after configuration is loaded
+            // Load main data after configuration is loaded successfully
             loadMainData();
         }
 
@@ -618,10 +647,15 @@
         // Refresh data
         function refreshData() {
             if (document.getElementById('mainPage').style.display !== 'none') {
-                loadMainData();
+                loadConfiguration(); // Reload configuration and then main data
             } else if (currentAlbumData) {
                 openAlbum(currentAlbumData.id, currentAlbumData.name);
             }
+        }
+
+        // Refresh configuration only
+        function refreshConfiguration() {
+            loadConfiguration();
         }
 
         // Escape HTML to prevent XSS
