@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Album - Google Drive</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --accent-color: #fbbc04;
+            --danger-color: #ea4335;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem 0;
+        }
+
+        .footer {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 180px;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .album-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            height: 300px;
+        }
+
+        .album-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2);
+        }
+
+        .album-icon {
+            font-size: 4rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .photo-grid img {
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            object-fit: cover;
+            width: 100%;
+            height: 200px;
+        }
+
+        .photo-grid img:hover {
+            transform: scale(1.05);
+        }
+
+        .modal-img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .spinner-border {
+            color: var(--primary-color);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border: none;
+            border-radius: 25px;
+            padding: 0.5rem 1.5rem;
+        }
+
+        .btn-success {
+            background: var(--secondary-color);
+            border: none;
+            border-radius: 25px;
+            padding: 0.5rem 1.5rem;
+        }
+
+        .page-title {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin: 2rem 0;
+        }
+
+        .breadcrumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .breadcrumb-item a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb-item.active {
+            color: var(--accent-color);
+        }
+
+        .pagination .page-link {
+            border-radius: 10px;
+            margin: 0 2px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .pagination .page-item.active .page-link {
+            background: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-images text-primary"></i>
+                        Photo Album Collection
+                    </h1>
+                    <p class="text-muted mb-0">ระบบจัดการอัลบั้มภาพจาก Google Drive</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-primary" onclick="refreshData()">
+                        <i class="bi bi-arrow-clockwise"></i> รีเฟรชข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container my-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" id="breadcrumb" style="display: none;">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="#" onclick="showMainPage()">
+                        <i class="bi bi-house"></i> หน้าหลัก
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" id="currentAlbum"></li>
+            </ol>
+        </nav>
+
+        <!-- Main Page -->
+        <div id="mainPage">
+            <h2 class="page-title text-center">
+                <i class="bi bi-collection"></i>
+                คอลเลกชันภาพของคุณ
+            </h2>
+
+            <!-- Dashboard -->
+            <div class="row mb-5">
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card text-center p-4">
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <i class="bi bi-folder2-open text-primary" style="font-size: 3.5rem;"></i>
+                            <h3 class="mt-3 mb-1" id="totalAlbums">0</h3>
+                            <p class="text-muted mb-0">อัลบั้มทั้งหมด</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card text-center p-4">
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <i class="bi bi-image text-success" style="font-size: 3.5rem;"></i>
+                            <h3 class="mt-3 mb-1" id="totalFiles">0</h3>
+                            <p class="text-muted mb-0">ไฟล์ทั้งหมด</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card text-center p-4">
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <i class="bi bi-hdd text-warning" style="font-size: 3.5rem;"></i>
+                            <h3 class="mt-3 mb-1" id="totalSize">0 MB</h3>
+                            <p class="text-muted mb-0">ความจุที่ใช้</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Albums Grid (2 rows x 4 columns) -->
+            <div id="albumsContainer">
+                <div class="row" id="albumsGrid"></div>
+                
+                <!-- Albums Pagination -->
+                <nav aria-label="Albums pagination" class="mt-4">
+                    <ul class="pagination justify-content-center" id="albumsPagination"></ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Album View Page -->
+        <div id="albumPage" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="page-title" id="albumTitle">
+                    <i class="bi bi-images"></i>
+                    ชื่ออัลบั้ม
+                </h2>
+                <div>
+                    <span class="badge bg-primary fs-6" id="albumPhotoCount">0 ภาพ</span>
+                </div>
+            </div>
+
+            <!-- Photos Grid (4 columns x 5 rows) -->
+            <div class="row photo-grid" id="photosGrid"></div>
+            
+            <!-- Photos Pagination -->
+            <nav aria-label="Photos pagination" class="mt-4">
+                <ul class="pagination justify-content-center" id="photosPagination"></ul>
+            </nav>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">กำลังโหลด...</span>
+            </div>
+            <h4 class="mt-3">กำลังโหลดข้อมูล...</h4>
+            <p class="text-muted">กรุณารอสักครู่</p>
+        </div>
+    </div>
+
+    <!-- Photo Modal -->
+    <div class="modal fade" id="photoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalTitle">ชื่อไฟล์</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" class="modal-img" src="" alt="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" id="downloadBtn">
+                        <i class="bi bi-download"></i> ดาวน์โหลด
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="bi bi-images"></i> Photo Album Collection</h5>
+                    <p class="mb-0">ระบบจัดการอัลบั้มภาพจาก Google Drive พัฒนาด้วย Google Apps Script</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0">
+                        <i class="bi bi-google"></i>
+                        Powered by Google Apps Script & Bootstrap 5.3.7
+                    </p>
+                    <small class="text-muted">© 2024 Photo Album System</small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuration
+        const MAIN_FOLDER_ID = '17Fa8NmysOCSbkxwWCeUtai2VW4GikGN5';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyS3f5CaJtfPvuC-CBotytv3kMdovwdEZ05iKPhTC7OooFQTI5vWYnB-2TV_51NloDtaQ/exec';
+        const ALBUMS_PER_PAGE = 8; // 2 rows x 4 columns
+        const PHOTOS_PER_PAGE = 20; // 4 columns x 5 rows
+
+        // Global variables
+        let currentAlbums = [];
+        let currentPhotos = [];
+        let currentAlbumData = null;
+        let currentAlbumsPage = 1;
+        let currentPhotosPage = 1;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMainData();
+        });
+
+        // Load main dashboard data
+        async function loadMainData() {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_URL}?action=getAlbums&folderId=${MAIN_FOLDER_ID}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateDashboard(data);
+                    currentAlbums = data.albums;
+                    displayAlbums(1);
+                } else {
+                    showError('ไม่สามารถโหลดข้อมูลได้: ' + data.error);
+                }
+            } catch (error) {
+                showError('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message);
+            }
+            showLoading(false);
+        }
+
+        // Update dashboard statistics
+        function updateDashboard(data) {
+            document.getElementById('totalAlbums').textContent = data.totalAlbums;
+            document.getElementById('totalFiles').textContent = data.totalFiles;
+            document.getElementById('totalSize').textContent = data.totalSize + ' MB';
+        }
+
+        // Display albums with pagination (2 rows x 4 columns)
+        function displayAlbums(page) {
+            currentAlbumsPage = page;
+            const startIndex = (page - 1) * ALBUMS_PER_PAGE;
+            const endIndex = startIndex + ALBUMS_PER_PAGE;
+            const albumsToShow = currentAlbums.slice(startIndex, endIndex);
+
+            const albumsGrid = document.getElementById('albumsGrid');
+            albumsGrid.innerHTML = '';
+
+            albumsToShow.forEach(album => {
+                const albumCard = createAlbumCard(album);
+                albumsGrid.appendChild(albumCard);
+            });
+
+            updateAlbumsPagination();
+        }
+
+        // Create album card
+        function createAlbumCard(album) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-sm-6 mb-4';
+            
+            col.innerHTML = `
+                <div class="card album-card h-100 text-center p-4" onclick="openAlbum('${album.id}', '${escapeHtml(album.name)}')">
+                    <div class="card-body d-flex flex-column">
+                        <i class="bi bi-folder2-open album-icon"></i>
+                        <h5 class="card-title mb-3">${escapeHtml(album.name)}</h5>
+                        <div class="mt-auto">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <small class="text-muted">ไฟล์รูปภาพ</small>
+                                    <div class="fw-bold text-primary fs-5">${album.fileCount}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">ความจุ</small>
+                                    <div class="fw-bold text-success fs-5">${album.size} MB</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return col;
+        }
+
+        // Update albums pagination
+        function updateAlbumsPagination() {
+            const totalPages = Math.ceil(currentAlbums.length / ALBUMS_PER_PAGE);
+            const pagination = document.getElementById('albumsPagination');
+            pagination.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            // Previous button
+            if (currentAlbumsPage > 1) {
+                const prevLi = document.createElement('li');
+                prevLi.className = 'page-item';
+                prevLi.innerHTML = `<a class="page-link" href="#" onclick="displayAlbums(${currentAlbumsPage - 1})">ก่อนหน้า</a>`;
+                pagination.appendChild(prevLi);
+            }
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentAlbumsPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="displayAlbums(${i})">${i}</a>`;
+                pagination.appendChild(li);
+            }
+
+            // Next button
+            if (currentAlbumsPage < totalPages) {
+                const nextLi = document.createElement('li');
+                nextLi.className = 'page-item';
+                nextLi.innerHTML = `<a class="page-link" href="#" onclick="displayAlbums(${currentAlbumsPage + 1})">ถัดไป</a>`;
+                pagination.appendChild(nextLi);
+            }
+        }
+
+        // Open album
+        async function openAlbum(albumId, albumName) {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_URL}?action=getPhotos&folderId=${albumId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPhotos = data.photos;
+                    currentAlbumData = { id: albumId, name: albumName };
+                    
+                    document.getElementById('albumTitle').innerHTML = `<i class="bi bi-images"></i> ${escapeHtml(albumName)}`;
+                    document.getElementById('albumPhotoCount').textContent = `${data.photos.length} ภาพ`;
+                    document.getElementById('currentAlbum').textContent = albumName;
+                    
+                    displayPhotos(1);
+                    showAlbumPage();
+                } else {
+                    showError('ไม่สามารถโหลดภาพได้: ' + data.error);
+                }
+            } catch (error) {
+                showError('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message);
+            }
+            showLoading(false);
+        }
+
+        // Display photos with pagination (4 columns x 5 rows)
+        function displayPhotos(page) {
+            currentPhotosPage = page;
+            const startIndex = (page - 1) * PHOTOS_PER_PAGE;
+            const endIndex = startIndex + PHOTOS_PER_PAGE;
+            const photosToShow = currentPhotos.slice(startIndex, endIndex);
+
+            const photosGrid = document.getElementById('photosGrid');
+            photosGrid.innerHTML = '';
+
+            photosToShow.forEach(photo => {
+                const photoCard = createPhotoCard(photo);
+                photosGrid.appendChild(photoCard);
+            });
+
+            updatePhotosPagination();
+        }
+
+        // Create photo card
+        function createPhotoCard(photo) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-sm-6 mb-4';
+            
+            const imageUrl = `https://lh3.googleusercontent.com/d/${photo.id}`;
+            
+            col.innerHTML = `
+                <div class="card">
+                    <img src="${imageUrl}" class="card-img-top" alt="${escapeHtml(photo.name)}" 
+                         onclick="openPhotoModal('${photo.id}', '${escapeHtml(photo.name)}', '${imageUrl}')"
+                         loading="lazy">
+                    <div class="card-body p-2">
+                        <small class="text-muted">${escapeHtml(photo.name)}</small>
+                    </div>
+                </div>
+            `;
+            
+            return col;
+        }
+
+        // Update photos pagination
+        function updatePhotosPagination() {
+            const totalPages = Math.ceil(currentPhotos.length / PHOTOS_PER_PAGE);
+            const pagination = document.getElementById('photosPagination');
+            pagination.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            // Previous button
+            if (currentPhotosPage > 1) {
+                const prevLi = document.createElement('li');
+                prevLi.className = 'page-item';
+                prevLi.innerHTML = `<a class="page-link" href="#" onclick="displayPhotos(${currentPhotosPage - 1})">ก่อนหน้า</a>`;
+                pagination.appendChild(prevLi);
+            }
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentPhotosPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="displayPhotos(${i})">${i}</a>`;
+                pagination.appendChild(li);
+            }
+
+            // Next button
+            if (currentPhotosPage < totalPages) {
+                const nextLi = document.createElement('li');
+                nextLi.className = 'page-item';
+                nextLi.innerHTML = `<a class="page-link" href="#" onclick="displayPhotos(${currentPhotosPage + 1})">ถัดไป</a>`;
+                pagination.appendChild(nextLi);
+            }
+        }
+
+        // Open photo modal
+        function openPhotoModal(photoId, photoName, imageUrl) {
+            document.getElementById('photoModalTitle').textContent = photoName;
+            document.getElementById('modalImage').src = imageUrl;
+            document.getElementById('downloadBtn').onclick = () => downloadPhoto(photoId, photoName);
+            
+            const modal = new bootstrap.Modal(document.getElementById('photoModal'));
+            modal.show();
+        }
+
+        // Download photo
+        async function downloadPhoto(photoId, photoName) {
+            try {
+                const response = await fetch(`${API_URL}?action=downloadPhoto&fileId=${photoId}`);
+                const data = await response.json();
+                
+                if (data.success && data.downloadUrl) {
+                    const link = document.createElement('a');
+                    link.href = data.downloadUrl;
+                    link.download = photoName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    // Fallback to direct Google Drive download
+                    const downloadUrl = `https://drive.google.com/uc?export=download&id=${photoId}`;
+                    window.open(downloadUrl, '_blank');
+                }
+            } catch (error) {
+                // Fallback to direct Google Drive download
+                const downloadUrl = `https://drive.google.com/uc?export=download&id=${photoId}`;
+                window.open(downloadUrl, '_blank');
+            }
+        }
+
+        // Show album page
+        function showAlbumPage() {
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('albumPage').style.display = 'block';
+            document.getElementById('breadcrumb').style.display = 'block';
+        }
+
+        // Show main page
+        function showMainPage() {
+            document.getElementById('mainPage').style.display = 'block';
+            document.getElementById('albumPage').style.display = 'none';
+            document.getElementById('breadcrumb').style.display = 'none';
+        }
+
+        // Show/hide loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Show error message
+        function showError(message) {
+            alert('เกิดข้อผิดพลาด: ' + message);
+        }
+
+        // Refresh data
+        function refreshData() {
+            if (document.getElementById('mainPage').style.display !== 'none') {
+                loadMainData();
+            } else if (currentAlbumData) {
+                openAlbum(currentAlbumData.id, currentAlbumData.name);
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97099d70d0ef1104',t:'MTc1NTQzODM1OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
